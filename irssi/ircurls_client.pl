@@ -18,9 +18,7 @@ $SIG{CHLD}="IGNORE";
 
 my %urllog;
 my $ua = LWP::UserAgent->new;
-my $site_url = 'http://82.130.24.94:3000/submissions/create';
-my $site_user = 'lautis';
-my $site_secret_key = '5b1fa5f89b8b13d215eadd8a15dce3ff10f279fc';
+my $site_url = 'http://hannu.sivut.fi/irc-urls/submissions/create';
 
 sub log_public {
     my ($server, $data, $nick, $mask, $target) = @_;
@@ -56,6 +54,8 @@ sub logurl {
 
 sub send_url {
   my ($network, $nick, $mask, $url, $target) = @_;
+  my $site_user = Irssi::settings_get_str('ircurls_username');
+  my $site_secret_key = Irssi::settings_get_str('ircurls_secret_key');
   Irssi::print("Sending: " . $site_user . " / ". $network." / ".$nick." / ".$mask." / ".$url." / ".$target);
   
   # Fork
@@ -84,6 +84,10 @@ sub send_url {
   }
   return 0;
 }
+
+# Settings
+Irssi::settings_add_str($IRSSI{'name'}, 'ircurls_username', '');
+Irssi::settings_add_str($IRSSI{'name'}, 'ircurls_secret_key', '');
 
 Irssi::signal_add_last('message public', 'log_public');
 Irssi::signal_add_last('message own_public', 'log_own');
