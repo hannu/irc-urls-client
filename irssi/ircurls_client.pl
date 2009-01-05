@@ -26,6 +26,7 @@ sub log_public {
 }
 sub log_own{
     my ($server, $data, $target) = @_;
+    # Parse !XXXXXchannel -> !channel
     if($target =~ /\![A-Z0-9]{5}/) {
       $target = "!" . substr($target, 6);
     }
@@ -47,10 +48,10 @@ sub parse_url {
 }
 sub logurl {
   my ($network, $nick, $mask, $data, $target) = @_;
-  my $url = parse_url($data);
+  my $url = parse_url($data); 
   if ($url) {
-    # TODO: Use threads
     send_url($network, $nick, $mask, $url, $target);
+    return 1;
   }
   return 0;
 }
@@ -67,11 +68,11 @@ sub send_url {
     Irssi::print("Fork failed.");
     return;
   } elsif ($pid) {
-    # parent
+    # Parent
     Irssi::pidwait_add($pid);
     return;
   } else {
-    # child
+    # Chill
     my $req = POST $site_url, [
       url => $url, 
       network => $network,
@@ -88,11 +89,13 @@ sub send_url {
   return 0;
 }
 
-# Settings
+# Irssi settings
 Irssi::settings_add_str($IRSSI{'name'}, 'ircurls_username', '');
 Irssi::settings_add_str($IRSSI{'name'}, 'ircurls_secret_key', '');
 
+# Irssi signals
 Irssi::signal_add_last('message public', 'log_public');
 Irssi::signal_add_last('message own_public', 'log_own');
 Irssi::signal_add_last('message topic', 'log_topic');
+
 Irssi::print("IRC-URLs.net v2 client loaded");
