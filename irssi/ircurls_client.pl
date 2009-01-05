@@ -18,9 +18,9 @@ $SIG{CHLD}="IGNORE";
 
 my %urllog;
 my $ua = LWP::UserAgent->new;
-my $site_url = 'http://hannu.sivut.fi/irc-urls/submissions/create';
-my $site_user = 'hannu';
-my $site_secret_key = 'b64037fc00993be74d67d92544fa52abceca0f56';
+my $site_url = 'http://82.130.24.94:3000/submissions/create';
+my $site_user = 'lautis';
+my $site_secret_key = '5b1fa5f89b8b13d215eadd8a15dce3ff10f279fc';
 
 sub log_public {
     my ($server, $data, $nick, $mask, $target) = @_;
@@ -57,17 +57,31 @@ sub logurl {
 sub send_url {
   my ($network, $nick, $mask, $url, $target) = @_;
   Irssi::print("Sending: " . $site_user . " / ". $network." / ".$nick." / ".$mask." / ".$url." / ".$target);
-  my $req = POST $site_url, [
-    url => $url, 
-    network => $network,
-    channel => $target,
-    nick => $nick,
-    mask => $mask,
-    user => $site_user,
-    secret_key => $site_secret_key
-  ];
-
-  Irssi::print($ua->request($req)->as_string);
+  
+  # Fork
+  my $pid = fork();
+  unless (defined $pid) {
+    Irssi::print("Fork failed.");
+    return;
+  } elsif ($pid) {
+    # parent
+    Irssi::pidwait_add($pid);
+    return;
+  } else {
+    # child
+    my $req = POST $site_url, [
+      url => $url, 
+      network => $network,
+      channel => $target,
+      nick => $nick,
+      mask => $mask,
+      user => $site_user,
+      secret_key => $site_secret_key
+    ];
+    
+    $ua->request($req);
+    POSIX::_exit(1);
+  }
   return 0;
 }
 
