@@ -26,7 +26,7 @@ sub log_public {
 }
 sub log_own{
     my ($server, $data, $target) = @_;
-    if(substr($target, 0, 1) eq "!") {
+    if($target =~ /\![A-Z0-9]{5}/) {
       $target = "!" . substr($target, 6);
     }
     # TODO: Get own host mask
