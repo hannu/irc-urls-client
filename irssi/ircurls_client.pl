@@ -30,8 +30,9 @@ sub log_own{
     if ($target =~ /\![A-Z0-9]{5}/) {
       $target = "!" . substr($target, 6);
     }
-    # TODO: Get own host mask
-    return logurl($server->{chatnet}, $server->{nick}, "own\@mask.foo", $data, $target);
+    # Find own hostmask
+    my $mask = $server->channel_find($target)->nick_find($server->{nick})->{host};
+    return logurl($server->{chatnet}, $server->{nick}, $mask, $data, $target);
 }
 sub log_topic {
     my ($server, $target, $data, $nick, $mask) = @_;
