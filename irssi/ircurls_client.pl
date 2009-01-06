@@ -27,7 +27,7 @@ sub log_public {
 sub log_own{
     my ($server, $data, $target) = @_;
     # Parse !XXXXXchannel -> !channel
-    if($target =~ /\![A-Z0-9]{5}/) {
+    if ($target =~ /\![A-Z0-9]{5}/) {
       $target = "!" . substr($target, 6);
     }
     # TODO: Get own host mask
@@ -72,7 +72,7 @@ sub send_url {
     Irssi::pidwait_add($pid);
     return;
   } else {
-    # Chill
+    # Child
     my $req = POST $site_url, [
       url => $url, 
       network => $network,
