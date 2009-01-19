@@ -59,9 +59,7 @@ sub logurl {
 
 sub send_url {
   my ($network, $nick, $mask, $url, $target) = @_;
-  my $site_user = Irssi::settings_get_str('ircurls_username');
-  my $site_secret_key = Irssi::settings_get_str('ircurls_secret_key');
-  Irssi::print("Sending: " . $site_user . " / ". $network." / ".$nick." / ".$mask." / ".$url." / ".$target);
+  my $site_client_key = Irssi::settings_get_str('ircurls_client_key');
   
   # Fork
   my $pid = fork();
@@ -81,7 +79,7 @@ sub send_url {
       nick => $nick,
       mask => $mask,
       user => $site_user,
-      secret_key => $site_secret_key
+      client_key => $site_client_key
     ];
     
     $ua->request($req);
@@ -91,8 +89,7 @@ sub send_url {
 }
 
 # Irssi settings
-Irssi::settings_add_str($IRSSI{'name'}, 'ircurls_username', '');
-Irssi::settings_add_str($IRSSI{'name'}, 'ircurls_secret_key', '');
+Irssi::settings_add_str($IRSSI{'name'}, 'ircurls_client_key', '');
 
 # Irssi signals
 Irssi::signal_add_last('message public', 'log_public');
