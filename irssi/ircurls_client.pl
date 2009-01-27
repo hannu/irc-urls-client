@@ -78,7 +78,6 @@ sub send_url {
       channel => $target,
       nick => $nick,
       mask => $mask,
-      user => $site_user,
       client_key => $site_client_key
     ];
     
