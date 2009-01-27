@@ -18,7 +18,7 @@ $SIG{CHLD}="IGNORE";
 
 my %urllog;
 my $ua = LWP::UserAgent->new;
-my $site_url = 'http://hannu.sivut.fi/irc-urls/submissions/create';
+my $site_url = 'http://hannu.sivut.fi/submissions/create';
 
 sub log_public {
     my ($server, $data, $nick, $mask, $target) = @_;
