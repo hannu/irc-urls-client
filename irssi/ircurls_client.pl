@@ -6,15 +6,13 @@ use LWP;
 use HTTP::Request::Common qw(POST);
 use POSIX;
 
-$VERSION = "0.01";
+$VERSION = "0.02";
 %IRSSI = (
     authors     => "IRC-URLs Team",
     name        => "ircurls_client",
     description => "IRC-URls v2 client",
     license     => "GPLv2"
 );
-
-$SIG{CHLD}="IGNORE";
 
 my %urllog;
 my $ua = LWP::UserAgent->new;
@@ -59,19 +57,11 @@ sub logurl {
 
 sub send_url {
   my ($network, $nick, $mask, $url, $target) = @_;
-  my $site_client_key = Irssi::settings_get_str('ircurls_client_key');
-  
-  # Fork
+  my $site_client_key = Irssi::settings_get_str('ircurls_client_key');  
   my $pid = fork();
-  unless (defined $pid) {
-    Irssi::print("Fork failed.");
-    return;
-  } elsif ($pid) {
-    # Parent
+  if ($pid) {
     Irssi::pidwait_add($pid);
-    return;
-  } else {
-    # Child
+  } elsif (defined $pid) {
     my $req = POST $site_url, [
       url => $url, 
       network => $network,
@@ -80,9 +70,10 @@ sub send_url {
       mask => $mask,
       client_key => $site_client_key
     ];
-    
     $ua->request($req);
     POSIX::_exit(1);
+  } else {
+    Irssi::print("IRC-URLs.net client: Fork error");
   }
   return 0;
 }
@@ -95,4 +86,4 @@ Irssi::signal_add_last('message public', 'log_public');
 Irssi::signal_add_last('message own_public', 'log_own');
 Irssi::signal_add_last('message topic', 'log_topic');
 
-Irssi::print("IRC-URLs.net v2 client loaded");
+Irssi::print("IRC-URLs.net client " . $VERSION . " loaded");
