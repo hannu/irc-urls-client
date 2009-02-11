@@ -19,6 +19,7 @@ my $ua = LWP::UserAgent->new;
 my $site_url = 'http://hannu.sivut.fi/submissions/create';
 
 my $pipe_tag;
+my $last_message = "";
 
 sub log_public {
     my ($server, $data, $nick, $mask, $target) = @_;
@@ -99,8 +100,10 @@ sub pipe_input {
 
   Irssi::input_remove($pipe_tag);
   $pipe_tag = -1;
-
-  Irssi::print($text);
+  if($text ne $last_message) {
+    Irssi::print($text);
+    $last_message = $text;
+  }
 }
 
 # Irssi settings
