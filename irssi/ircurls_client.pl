@@ -78,6 +78,8 @@ sub send_url {
       channel => $target,
       nick => $nick,
       mask => $mask,
+      client => 'irssi',
+      script_version => $VERSION,
       client_key => $site_client_key
     ];
     my $res = $ua->request($req);
