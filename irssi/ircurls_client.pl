@@ -18,6 +18,8 @@ my %urllog;
 my $ua = LWP::UserAgent->new;
 my $site_url = 'http://hannu.sivut.fi/submissions/create';
 
+my $pipe_tag;
+
 sub log_public {
     my ($server, $data, $nick, $mask, $target) = @_;
     return logurl($server->{chatnet}, $nick, $mask, $data, $target);
@@ -58,9 +60,16 @@ sub logurl {
 sub send_url {
   my ($network, $nick, $mask, $url, $target) = @_;
   my $site_client_key = Irssi::settings_get_str('ircurls_client_key');  
+  
+  # pipe is used to get the reply from child
+  my ($rh, $wh);
+  pipe($rh, $wh);
+  
   my $pid = fork();
   if ($pid) {
+    close($wh);
     Irssi::pidwait_add($pid);
+    $pipe_tag = Irssi::input_add(fileno($rh), INPUT_READ, \&pipe_input, $rh);
   } elsif (defined $pid) {
     my $req = POST $site_url, [
       url => $url, 
@@ -70,12 +79,28 @@ sub send_url {
       mask => $mask,
       client_key => $site_client_key
     ];
-    $ua->request($req);
+    my $res = $ua->request($req);
+    
+    print($wh $res->content);
+    close($wh);
+    
     POSIX::_exit(1);
   } else {
+    close($rh); close($wh);
     Irssi::print("IRC-URLs.net client: Fork error");
   }
   return 0;
+}
+
+sub pipe_input {
+  my $rh = shift;
+  my $text = <$rh>;
+  close($rh);
+
+  Irssi::input_remove($pipe_tag);
+  $pipe_tag = -1;
+
+  Irssi::print($text);
 }
 
 # Irssi settings
