@@ -6,6 +6,11 @@ use LWP;
 use HTTP::Request::Common qw(POST);
 use POSIX;
 
+use Fcntl;
+use Errno;
+use Socket;
+use IO::Select;
+
 $VERSION = "0.02";
 %IRSSI = (
     authors     => "IRC-URLs Team",
@@ -16,10 +21,14 @@ $VERSION = "0.02";
 
 my %urllog;
 my $ua = LWP::UserAgent->new;
-my $site_url = 'http://hannu.sivut.fi/submissions/create';
+#my $site_url = 'http://hannu.sivut.fi/submissions/create';
+my $site_host = 'beta.irc-urls.net';
 
 my $pipe_tag;
 my $last_message = "";
+
+my $socket;
+my $tag;
 
 sub log_public {
     my ($server, $data, $nick, $mask, $target) = @_;
@@ -52,11 +61,122 @@ sub logurl {
   my ($network, $nick, $mask, $data, $target) = @_;
   my $url = parse_url($data); 
   if ($url) {
-    send_url($network, $nick, $mask, $url, $target);
+    #send_url($network, $nick, $mask, $url, $target);
+    nb_get($network, $nick, $mask, $url, $target);
+    #nb_get("LOL");
     return 1;
   }
   return 0;
 }
+
+sub urlencode {
+
+  my $str = shift;
+  $str =~ s/([^A-Za-z0-9])/sprintf("%%%02X", ord($1))/seg;
+
+  return $str;
+}
+
+sub nb_get($)
+{
+  my ($network, $nick, $mask, $url, $channel) = @_;
+  
+  my $postdata;
+  $postdata  = "network=".urlencode($network)."&channel=".urlencode($channel);
+  $postdata .= "&nick=".urlencode($nick)."&mask=".urlencode($mask);
+  $postdata .= "&client_key=".urlencode(Irssi::settings_get_str('ircurls_client_key'));
+  $postdata .= "&client=irssi&script_version=".urlencode($VERSION);
+  $postdata .= "&url=" . urlencode($url);
+  
+	my $tmp;
+	my $port = 80;
+
+	local *SOCK;
+	if (!socket(SOCK, PF_INET, SOCK_STREAM, getprotobyname('tcp')))
+	{
+	  Irssi::print("IRC-URLs.net client: error opening socket");
+		return nb_finisher();
+  }
+  $socket = *SOCK;
+  if (!defined($tmp = fcntl(SOCK, F_GETFL, 0)))
+  {
+    Irssi::print("IRC-URLs.net client: error getting socket socket flags");
+    return nb_finisher();
+	}
+	if (!defined(fcntl(SOCK, F_SETFL, $tmp | O_NONBLOCK)))
+	{
+	  Irssi::print("IRC-URLs.net client: error setting non-blocking socket");
+		return nb_finisher();
+	}
+	# Look if we are allowed to fetch IP from cache
+	$tmp = undef;
+	if (!defined($tmp) || !($tmp))
+  {
+    Irssi::print("IRC-URLs.net client: resolving dns");
+    $tmp = inet_aton($site_host);
+  }
+  if (!($tmp))
+  {
+    Irssi::print("IRC-URLs.net client: error resolving submission url");
+    return nb_finisher();
+  }
+  # Check if url on port 80
+  Irssi::print($tmp);
+  $tmp = sockaddr_in($port,$tmp);
+    Irssi::print($tmp);
+  if (!connect(SOCK, $tmp))
+  {
+    if ($! == EINPROGRESS)
+    {
+      Irssi::print("IRC-URLs.net client: connecting...");
+    }
+    else
+    {
+      Irssi::print("IRC-URLs.net client: error connecting to host" . $!);
+			return nb_finisher();
+		}
+	}
+	Irssi::print("IRC-URLs.net client: Request sent, adding callback for socket");
+
+	$tag = Irssi::input_add(fileno(SOCK), INPUT_WRITE, \&nb_connected_get, $postdata);
+}
+
+sub nb_connected_get($$)
+{
+  Irssi::print("Connected..");
+	# We have established a non blocking connection. Send request!
+	my $postdata = shift;
+	Irssi::input_remove($tag);
+	my $tmp = select($socket); $|=1; select($tmp);
+	$tmp = "POST /submissions/ HTTP/1.1\015\012";
+	$tmp .= "Host: " . $site_host . "\015\012";
+	$tmp .= "User-Agent: Irssi/Irc-urls-client\015\012";
+	$tmp .= "Content-length: ".length($postdata)."\015\012".
+		"Content-Type: application/x-www-form-urlencoded\015\012" if ($postdata);
+	$tmp .= "Connection: close\015\012";
+	$tmp .=	"\015\012";
+	$tmp .= $postdata if ($postdata);
+	$tag = Irssi::input_add(fileno($socket), INPUT_READ, \&nb_reader_get, "");
+}
+ 
+sub nb_reader_get()
+{
+	# We have received non blocking data, read it and continue!
+	my $tmp;
+	Irssi::print("Reading..");
+	Irssi::input_remove($tag); # Don't disturb our reading
+	return nb_finisher();
+}
+
+sub nb_finisher
+{
+  Irssi::print("Finished request");
+  $socket = undef;
+  $tag = undef;
+	return;
+}
+
+
 
 sub send_url {
   my ($network, $nick, $mask, $url, $target) = @_;
@@ -72,19 +192,19 @@ sub send_url {
     Irssi::pidwait_add($pid);
     $pipe_tag = Irssi::input_add(fileno($rh), INPUT_READ, \&pipe_input, $rh);
   } elsif (defined $pid) {
-    my $req = POST $site_url, [
-      url => $url, 
-      network => $network,
-      channel => $target,
-      nick => $nick,
-      mask => $mask,
-      client => 'irssi',
-      script_version => $VERSION,
-      client_key => $site_client_key
-    ];
-    my $res = $ua->request($req);
+    #my $req = POST $site_url, [
+    #  url => $url, 
+    #  network => $network,
+    # channel => $target,
+    #  nick => $nick,
+    #  mask => $mask,
+    #  client => 'irssi',
+    #  script_version => $VERSION,
+    #  client_key => $site_client_key
+    #];
+    #my $res = $ua->request($req);
     
-    print($wh $res->content);
+    #print($wh $res->content);
     close($wh);
     
     POSIX::_exit(1);
