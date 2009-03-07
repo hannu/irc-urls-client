@@ -47,10 +47,12 @@ sub log_own{
     my $mask = $server->channel_find($target)->nick_find($server->{nick})->{host};
     return logurl($server->{chatnet}, $server->{nick}, $mask, $data, $target);
 }
+
 sub log_topic {
     my ($server, $target, $data, $nick, $mask) = @_;
     return logurl($server->{chatnet}, $nick, $mask, $data, $target);
 }
+
 sub parse_url {
     my ($url) = @_;
     if ($url =~ /((http|https):\/\/[a-zA-Z0-9\|\[\]\/\\\:\?\%\.\,\&\;=#\-\_\!\+\~]*)/i){
@@ -60,6 +62,7 @@ sub parse_url {
     }
     return 0;
 }
+
 sub logurl {
   my ($network, $nick, $mask, $data, $target) = @_;
   my $url = parse_url($data); 
@@ -71,15 +74,12 @@ sub logurl {
 }
 
 sub urlencode {
-
   my $str = shift;
   $str =~ s/([^A-Za-z0-9])/sprintf("%%%02X", ord($1))/seg;
-
   return $str;
 }
 
-sub nb_get
-{
+sub nb_get {
   my ($network, $nick, $mask, $url, $channel) = @_;
   
   my $postdata;
@@ -93,31 +93,26 @@ sub nb_get
   my $port = 80;
 
   local *SOCK;
-  if (!socket(SOCK, PF_INET, SOCK_STREAM, getprotobyname('tcp')))
-  {
+  if (!socket(SOCK, PF_INET, SOCK_STREAM, getprotobyname('tcp'))) {
     debug_print("IRC-URLs.net client: error opening socket");
     return nb_finisher();
   }
   $socket = *SOCK;
-  if (!defined($tmp = fcntl(SOCK, F_GETFL, 0)))
-  {
+  if (!defined($tmp = fcntl(SOCK, F_GETFL, 0))) {
     Irssi::print("IRC-URLs.net client: error getting socket socket flags");
     return nb_finisher();
-	}
-	if (!defined(fcntl(SOCK, F_SETFL, $tmp | O_NONBLOCK)))
-	{
-	  Irssi::print("IRC-URLs.net client: error setting non-blocking socket");
-		return nb_finisher();
-	}
-	# Look if we are allowed to fetch IP from cache
-	$tmp = undef;
-	if (!defined($tmp) || !($tmp))
-  {
+  }
+  if (!defined(fcntl(SOCK, F_SETFL, $tmp | O_NONBLOCK))) {
+    Irssi::print("IRC-URLs.net client: error setting non-blocking socket");
+    return nb_finisher();
+  }
+  # Look if we are allowed to fetch IP from cache
+  $tmp = undef;
+  if (!defined($tmp) || !($tmp)) {
     Irssi::print("IRC-URLs.net client: resolving dns");
     $tmp = inet_aton($site_host);
   }
-  if (!($tmp))
-  {
+  if (!($tmp)) {
     Irssi::print("IRC-URLs.net client: error resolving submission url");
     return nb_finisher();
   }
@@ -136,8 +131,7 @@ sub nb_get
     }
   }
   debug_print("IRC-URLs.net client: Request sent, adding callback for socket");
-
-	$tag = Irssi::input_add(fileno(SOCK), INPUT_WRITE, \&nb_connected_get, $postdata);
+  $tag = Irssi::input_add(fileno(SOCK), INPUT_WRITE, \&nb_connected_get, $postdata);
 }
 
 sub nb_connected_get($$)
@@ -155,7 +149,7 @@ sub nb_connected_get($$)
   $tmp .= "Content-length: ".length($postdata)."\015\012".
     "Content-Type: application/x-www-form-urlencoded\015\012" if ($postdata);
   $tmp .= "Connection: close\015\012";
-  $tmp .=	"\015\012";
+  $tmp .= "\015\012";
   $tmp .= $postdata if ($postdata);
   print $socket $tmp;
   $tag = Irssi::input_add(fileno($socket), INPUT_READ, \&nb_reader_get, "");
