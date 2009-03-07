@@ -25,7 +25,7 @@ my $last_message = "";
 my $socket;
 my $tag;
 
-my $debug = 1;
+my $debug = 0;
 
 sub log_public {
     my ($server, $data, $nick, $mask, $target) = @_;
@@ -34,7 +34,14 @@ sub log_public {
 
 sub debug_print {
   my $message = shift;
-  if($debug) { Irssi::print($message) }
+  if ($debug) { 
+    Irssi::print("IRC-URLs.net client DEBUG: ".$message)
+  }
+}
+
+sub error_print {
+  my $message = shift;
+  iIrssi::print("IRC-URLs.net client error: ".$message)
 }
 
 sub log_own{
@@ -94,42 +101,49 @@ sub nb_get {
 
   local *SOCK;
   if (!socket(SOCK, PF_INET, SOCK_STREAM, getprotobyname('tcp'))) {
-    debug_print("IRC-URLs.net client: Error opening socket");
+    error_print("Could not open socket");
     return nb_finisher();
   }
   $socket = *SOCK;
   if (!defined($tmp = fcntl(SOCK, F_GETFL, 0))) {
-    Irssi::print("IRC-URLs.net client: Error getting socket socket flags");
+    error_print("Could not get socket flags");
     return nb_finisher();
   }
   if (!defined(fcntl(SOCK, F_SETFL, $tmp | O_NONBLOCK))) {
-    Irssi::print("IRC-URLs.net client: Error setting non-blocking socket");
+    error_print("Could not set non-blocking socket");
     return nb_finisher();
   }
   # Look if we are allowed to fetch IP from cache
   $tmp = undef;
   if (!defined($tmp) || !($tmp)) {
-    #Irssi::print("IRC-URLs.net client: Resolving dns");
+    debug_print("Resolving dns...");
     $tmp = inet_aton($site_host);
   }
   if (!($tmp)) {
-    Irssi::print("IRC-URLs.net client: Error resolving submission url");
+    error_print("Could not resolv submission url");
     return nb_finisher();
   }
   # Check if url on port 80
-  $tmp = sockaddr_in($port, $tmp);
-  if (!connect(SOCK, $tmp)) {
-    if ($! == EINPROGRESS) {
-      #Irssi::print("IRC-URLs.net client: Connecting...");
-    } else {
-      Irssi::print("IRC-URLs.net client: Error connecting to host" . $!);
+  $tmp = sockaddr_in($port,$tmp);
+  if (!connect(SOCK, $tmp))
+  {
+    if ($! == EINPROGRESS)
+    {
+      debug_print("Connectíng...");
+    }
+    else
+    {
+      error_print("Error connecting to host" . $!);
       return nb_finisher();
     }
   }
+  debug_print("Request sent, adding callback for socket");
   $tag = Irssi::input_add(fileno(SOCK), INPUT_WRITE, \&nb_connected_get, $postdata);
 }
 
-sub nb_connected_get($$) {
+sub nb_connected_get($$)
+{
+  debug_print("Connected!");
   # We have established a non blocking connection. Send request!
   my $postdata = shift;
   
@@ -148,14 +162,18 @@ sub nb_connected_get($$) {
   $tag = Irssi::input_add(fileno($socket), INPUT_READ, \&nb_reader_get, "");
 }
  
-sub nb_reader_get() {
+sub nb_reader_get()
+{
   # We have received non blocking data, read it and continue!
   my $tmp;
+  debug_print("Reading..");
   Irssi::input_remove($tag); # Don't disturb our reading
   return nb_finisher();
 }
 
-sub nb_finisher {
+sub nb_finisher
+{
+  debug_print("Finished request");
   $socket = undef;
   $tag = undef;
   return;
