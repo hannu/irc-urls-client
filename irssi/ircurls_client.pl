@@ -174,6 +174,7 @@ sub nb_reader_get()
 sub nb_finisher
 {
   debug_print("Finished request");
+  close($socket);
   $socket = undef;
   $tag = undef;
   return;
