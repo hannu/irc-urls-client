@@ -9,7 +9,7 @@ use Errno;
 use Socket;
 use IO::Select;
 
-$VERSION = "0.1.0";
+$VERSION = "0.1.1";
 %IRSSI = (
     authors     => "IRC-URLs Team",
     name        => "ircurls_client",
@@ -62,9 +62,9 @@ sub log_topic {
 
 sub parse_url {
     my ($url) = @_;
-    if ($url =~ /((http|https):\/\/[a-zA-Z0-9\|\[\]\/\\\:\?\%\.\,\&\;=#\-\_\!\+\~]*)/i){
+    if ($url =~ /((http|https):\/\/\S+)/i) {
         return $1;
-    } elsif($url =~ /(www\.[a-zA-Z0-9\/\\\:\?\%\.\,\&\;=#\-\_\!\+\~]*)/i){
+    } elsif($url =~ /(www\.\S+)/i){
         return "http://".$1;
     }
     return 0;
