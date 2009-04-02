@@ -9,7 +9,7 @@ use Errno;
 use Socket;
 use IO::Select;
 
-$VERSION = "0.1.1";
+$VERSION = "0.1.2";
 %IRSSI = (
     authors     => "IRC-URLs Team",
     name        => "ircurls_client",
@@ -21,10 +21,6 @@ my %urllog;
 my $site_host = 'beta.irc-urls.net';
 
 my $last_message = "";
-
-my $socket;
-my $tag;
-
 my $debug = 0;
 
 sub log_public {
@@ -44,7 +40,7 @@ sub error_print {
   iIrssi::print("IRC-URLs.net client error: ".$message)
 }
 
-sub log_own{
+sub log_own {
     my ($server, $data, $target) = @_;
     # Parse !XXXXXchannel -> !channel
     if ($target =~ /\![A-Z0-9]{5}/) {
@@ -98,20 +94,22 @@ sub nb_get {
 
   my $tmp;
   my $port = 80;
+  my $socket;
+  my $tag;
 
   local *SOCK;
   if (!socket(SOCK, PF_INET, SOCK_STREAM, getprotobyname('tcp'))) {
     error_print("Could not open socket");
-    return nb_finisher();
+    return nb_finisher($tag, $socket);
   }
   $socket = *SOCK;
   if (!defined($tmp = fcntl(SOCK, F_GETFL, 0))) {
     error_print("Could not get socket flags");
-    return nb_finisher();
+    return nb_finisher($tag, $socket);
   }
   if (!defined(fcntl(SOCK, F_SETFL, $tmp | O_NONBLOCK))) {
     error_print("Could not set non-blocking socket");
-    return nb_finisher();
+    return nb_finisher($tag, $socket);
   }
   # Look if we are allowed to fetch IP from cache
   $tmp = undef;
@@ -121,33 +119,29 @@ sub nb_get {
   }
   if (!($tmp)) {
     error_print("Could not resolv submission url");
-    return nb_finisher();
+    return nb_finisher($tag, $socket);
   }
   # Check if url on port 80
   $tmp = sockaddr_in($port,$tmp);
-  if (!connect(SOCK, $tmp))
-  {
-    if ($! == EINPROGRESS)
-    {
+  if (!connect(SOCK, $tmp)) {
+    if ($! == EINPROGRESS) {
       debug_print("Connectíng...");
-    }
-    else
-    {
+    } else {
       error_print("Error connecting to host" . $!);
       return nb_finisher();
     }
   }
   debug_print("Request sent, adding callback for socket");
-  $tag = Irssi::input_add(fileno(SOCK), INPUT_WRITE, \&nb_connected_get, $postdata);
+  my @pargs = ($socket, \$tag, $postdata);
+  $tag = Irssi::input_add(fileno($socket), INPUT_WRITE, \&nb_connected_get, \@pargs);
 }
 
-sub nb_connected_get($$)
-{
-  debug_print("Connected!");
+sub nb_connected_get {
+  my ($socket, $tag, $postdata) = @{$_[0]};
+  debug_print("Connected to server! Sending POST data...");
   # We have established a non blocking connection. Send request!
-  my $postdata = shift;
   
-  Irssi::input_remove($tag);
+  Irssi::input_remove($$tag);
   my $tmp = select($socket); $|=1; select($tmp);
 
   $tmp = "POST /submissions/ HTTP/1.1\015\012";
@@ -158,21 +152,23 @@ sub nb_connected_get($$)
   $tmp .= "Connection: close\015\012";
   $tmp .= "\015\012";
   $tmp .= $postdata if ($postdata);
+  
   print $socket $tmp;
-  $tag = Irssi::input_add(fileno($socket), INPUT_READ, \&nb_reader_get, "");
+  debug_print("Data sent! Adding callback for reading...");
+  my @pargs = ($socket, \$tag);
+  $tag = Irssi::input_add(fileno($socket), INPUT_READ, \&nb_reader_get, \@pargs);
 }
  
-sub nb_reader_get()
-{
+sub nb_reader_get {
+  my ($socket, $tag) = @{$_[0]};
   # We have received non blocking data, read it and continue!
-  my $tmp;
-  debug_print("Reading..");
-  Irssi::input_remove($tag); # Don't disturb our reading
-  return nb_finisher();
+  debug_print("Data recieved!");
+  Irssi::input_remove($$tag); # Don't disturb our reading
+  return nb_finisher($socket, $tag);
 }
 
-sub nb_finisher
-{
+sub nb_finisher {
+  my ($socket, $tag) = @_;
   debug_print("Finished request");
   close($socket);
   $socket = undef;
